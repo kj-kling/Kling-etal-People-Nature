@@ -1,6 +1,6 @@
 ---
 title: "KLING et al P&N"
-author: "Katherine Kling"
+author: "Katherine Kling & Carter W. Daniels"
 date: "2023-05-11"
 output: word_document
 ---
@@ -50,12 +50,38 @@ fun.mod.notime.aicc <- function(x) {
   x.5 <- AICc(glmmTMB(df2_notime[,x] ~ 1 + (1|site:plot.id), family = poisson, data = df2_notime))
   aicc <- c(x.1, x.2, x.3, x.4, x.5)
   names(aicc) <- c("Full-Int", "Full-NoInt", "Pop", "Dist", "Null")
-  aicc <<- aicc
-  aicc
+  aicc.w <<- aicw(aicc)
 } # Where x is the column # for the dependent variable (e.g., 10 = wood.ct)
 
+## Formulas for assessing the likelihood of each model as compared to the null
+# [2] POPULATION & DISTANCE ANALYSES: To calculate likelihood of selected best model compared to null. Returns (1) dAICc (for AICc change between best & null model) & (2) likelihood (exp(dAICc/2))
+fun.mod.e2.null <- function(x) {
+  dAICc <- aicc.w$delta[x]
+  likelihood <- exp(dAICc/2)
+  x.1 <- data.frame(dAICc, likelihood)
+  x.1
+} # where x is the row number for null model values, typically 5 
+
+# [3] Generates null model for change over time analyses
+fun.m0t <- function(x) {
+  m0 <- glmmTMB(df3_time[,x] ~ 1 + (1|site:plot.id), family = poisson, data = df3_time)
+  m0
+} # Where x is the column number for the metric of interest in df3_time
+
+# [4] CHANGE OVER TIME ANALYSES: To calculate likelihood & weight of selected best model compared to null. 
+fun.mod.e2.null.t <- function (x, y) {
+  AICc.null <- AICc(fun.m0t(y))[1]
+  AICc.mod <- AICc(x)[1]
+  AICc.list <- c(AICc.mod, AICc.null)
+  dAICc <- AICc.null - AICc.mod
+  likelihood <- exp(dAICc/2)
+  weight <- aicw(AICc.list)[1,3]
+  x.1 <- data.frame(dAICc, likelihood, weight)
+  x.1
+} # where x is name of change over time model (e.g., mod.time.timc) & x is the column number for the metric of interest in df3_time (uses function above - fun.m0t)
+
 ## Shortcuts for Visualization
-# [2] Generate model-predicted values & save in data frame
+# [5] Generate model-predicted values & save in data frame
 fun.mod.predict <- function(x) {
   df.predict$predicted <- exp(predict(x, newdata = df.predict, allow.new.levels = T))
   df.predict$ave_predicted <- ave(df.predict$predicted, df.predict$dist, df.predict$pop, FUN=mean)
@@ -66,7 +92,7 @@ fun.mod.predict <- function(x) {
   x.2
 } # Where x = model
 
-# [3] Plot model-predicted lines by population, colored by distance
+# [6] Plot model-predicted lines by population, colored by distance
 fun.plot.mod <- function(x,y) {
   y.lab <- deparse(substitute(x))
   ggplot() + 
@@ -108,11 +134,17 @@ df3_time <- as.data.frame(df3_time)
 ```{r}
 
 fun.mod.notime.aicc(8) # Use function to calculate aicc values of all possible models
-aicw(aicc) # Best model is Full-Int (w = 0.71)
+aicc.w # Best model is Full-Int (w = 0.71)
 
 mod.timc <-  glmmTMB(wood.ct ~ pop*dist + (1|site:plot.id), family = poisson, data = df2_notime)
 
 summary(mod.timc)
+```
+######
+##### How much more likely is this model than the null?
+##### *First number below is dAICc between model & null & second is the actual likelihood (previous number/2 & exponentiated).*
+```{r, echo = F}
+fun.mod.e2.null(5)
 ```
 ######
 ##### Main effects: Timber Count
@@ -167,11 +199,16 @@ fun.plot.mod(df2_notime$wood.ct, df4_predict$tim.c)
 ## For remaining analyses of pop & dist, using the same process as that for TIMBER COUNT. Refer to Timber Count annotations
 
 fun.mod.notime.aicc(11)
-aicw(aicc) # Best model is Full-Int (w = 0.74)
+aicc.w # Best model is Full-Int (w = 0.74)
 
 mod.timr <-  glmmTMB(wood.rich ~ pop*dist + (1|site:plot.id), family = poisson, data = df2_notime)
 
 summary(mod.timr)
+```
+######
+##### How much more likely is this model than the null?
+```{r, echo = F}
+fun.mod.e2.null(5)
 ```
 ######
 ##### Main effects: Timber Species Richness
@@ -203,11 +240,16 @@ fun.plot.mod(df2_notime$wood.rich, df4_predict$tim.r)
 
 ```{r}
 fun.mod.notime.aicc(9)
-aicw(aicc) # Best model is Full-NoInt (w = 0.71)
+aicc.w # Best model is Full-NoInt (w = 0.71)
 
 mod.medc <- glmmTMB(med.ct ~ pop + dist + (1|site:plot.id), family = poisson, data = df2_notime)
 
 summary(mod.medc) 
+```
+######
+##### How much more likely is this model than the null?
+```{r, echo = F}
+fun.mod.e2.null(5)
 ```
 ######
 ##### Main effects: Medicinal Plants Count
@@ -241,11 +283,16 @@ fun.plot.mod(df2_notime$med.ct, df4_predict$med.c)
 
 ```{r}
 fun.mod.notime.aicc(12)
-aicw(aicc) # Best model is Pop only (w = 0.53)
+aicc.w # Best model is Pop only (w = 0.53)
 
 mod.medr <- glmmTMB(med.rich ~ pop + (1|site:plot.id), family = poisson, data = df2_notime)
 
 summary(mod.medr) 
+```
+######
+##### How much more likely is this model than the null?
+```{r, echo = F}
+fun.mod.e2.null(5)
 ```
 ######
 ##### Main effects: Medicinal Plants Species Richness
@@ -280,12 +327,18 @@ fun.plot.mod(df2_notime$med.rich, df4_predict$med.r)
 
 ```{r}
 fun.mod.notime.aicc(10)
-aicw(aicc) # Best model is Full-Int (w = 0.64)
+aicc.w # Best model is Full-Int (w = 0.64)
 
 mod.lemc <- glmmTMB(lem.ct ~ pop*dist + (1|site:plot.id), family = poisson, data = df2_notime)
 
 summary(mod.lemc)
 ```
+######
+##### How much more likely is this model than the null?
+```{r, echo = F}
+fun.mod.e2.null(5)
+```
+
 ######
 ##### Main effects: Lemur Food Trees Count
 
@@ -318,12 +371,18 @@ fun.plot.mod(df2_notime$lem.ct, df4_predict$lem.c)
 ```{r}
 # Lemur Food Tree SPECIES RICHNESS
 fun.mod.notime.aicc(13)
-aicw(aicc) # Best model is Full-Int (w = 0.70)
+aicc.w # Best model is Full-Int (w = 0.70)
 
 mod.lemr <- glmmTMB(lem.rich ~ pop*dist + (1|site:plot.id), family = poisson, data = df2_notime)
 
 summary(mod.lemr) 
 ```
+######
+##### How much more likely is this model than the null?
+```{r, echo = F}
+fun.mod.e2.null(5)
+```
+
 ######
 ##### Main effects: Lemur Food Trees Species Richness
 
@@ -365,6 +424,13 @@ mod.time.timc <- glmmTMB(wood.ct ~ pop*dist + time + (1+time|site:plot.id), fami
 summary(mod.time.timc) 
 ```
 ######
+##### How much more likely is this model than the null? What is its model weight?
+```{r, echo = F}
+fun.mod.e2.null.t(mod.time.timc, 8)
+ 
+```
+
+######
 ##### Main effects: Timber Count
 ##### *Is the effect of time (& dist and population for this subset of repeat-sampled plots) significant if averaged over our nested random effects?*
 
@@ -395,6 +461,12 @@ mod.time.timr <- glmmTMB(wood.rich ~ pop*dist + time + (1+time|site:plot.id), fa
 
 summary(mod.time.timr) 
 ```
+##### How much more likely is this model than the null? What is its model weight?
+```{r, echo = F}
+fun.mod.e2.null.t(mod.time.timr, 11)
+ 
+```
+
 ######
 ##### Main effects: Timber Species Richness
 
@@ -423,6 +495,11 @@ ggplot(data = df3_time) +
 mod.time.medc <- glmmTMB(med.ct ~ pop + dist + time + (1+time|site:plot.id), family = poisson, data = df3_time)
 
 summary(mod.time.medc) 
+```
+##### How much more likely is this model than the null? What is its model weight?
+```{r, echo = F}
+fun.mod.e2.null.t(mod.time.medc, 9)
+ 
 ```
 ######
 ##### Main effects: Medicinal Plants Count
@@ -453,6 +530,11 @@ ggplot(data = df3_time) +
 mod.time.medr <- glmmTMB(med.rich ~ pop + time + (1|site:plot.id), family = poisson, data = df3_time) # Singular convergence issue when time was included as a random slope
 
 summary(mod.time.medr) # Medicinal plant species richness significantly decreases over time
+```
+##### How much more likely is this model than the null? What is its model weight?
+```{r, echo = F}
+fun.mod.e2.null.t(mod.time.medr, 12)
+ 
 ```
 ######
 ##### Main effects: Medicinal Plants Species Richness
@@ -486,6 +568,11 @@ mod.time.lemc <- glmmTMB(lem.ct ~ pop*dist + time + (1+time|site:plot.id), famil
 
 summary(mod.time.lemc) 
 ```
+##### How much more likely is this model than the null? What is its model weight?
+```{r, echo = F}
+fun.mod.e2.null.t(mod.time.lemc, 10)
+ 
+```
 ######
 ##### Main effects: Medicinal Plants Species Richness
 
@@ -515,6 +602,11 @@ mod.time.lemr <- glmmTMB(lem.rich ~ pop*dist + time + (1+time|site:plot.id), fam
 
 summary(mod.time.lemr)
 ```
+##### How much more likely is this model than the null? What is its model weight?
+```{r, echo = F}
+fun.mod.e2.null.t(mod.time.lemr, 13)
+ 
+```
 ######
 ##### Main effects: Lemur Food Trees Species Richness
 
@@ -536,100 +628,7 @@ ggplot(data = df3_time) +
 
 ```{r}
 ```
-######
-######
-## Examining Models Goodness of Fit 
-###### *Likelihood ratio tests between best model for each plant metric & null.*
-######
-### Population & Distance Models
-```{r, echo = F}
-# POP & DIST ANALYSES
-fun.m0 <- function(x) {
-  m0 <- glmmTMB(df2_notime[,x] ~ 1 + (1|site:plot.id), family = poisson, data = df2_notime)
-  m0
-} # Constructs null models for each plant metric population & distance analysis
-```
-######
-#### TIMBER COUNT
 
-```{r}
-anova(fun.m0(8), mod.timc, test = "LRT") 
-```
-######
-#### TIMBER SPECIES RICHNESS
-
-```{r}
-# TIMR
-anova(fun.m0(11), mod.timr, test = "LRT")
-```
-######
-#### MEDICINAL PLANTS COUNT
-
-```{r}
-anova(fun.m0(9), mod.medc, test = "LRT")
-```
-######
-#### MEDICINAL PLANTS SPECIES RICHNESS
-
-```{r}
-anova(fun.m0(12), mod.medr, test = "LRT")
-```
-######
-#### LEMUR FOOD TREES COUNT
-
-```{r}
-anova(fun.m0(10), mod.lemc, test = "LRT")
-```
-######
-#### LEMUR FOOD TREES SPECIES RICHNESS
-
-```{r}
-anova(fun.m0(13), mod.lemr, test = "LRT")
-```
-######
-### Change over Time Models
-```{r, echo = F}
-fun.m0t <- function(x) {
-  m0 <- glmmTMB(df3_time[,x] ~ 1 + (1|site:plot.id), family = poisson, data = df3_time)
-  m0
-} # Constructs null models for each plant metric change over time analysis
-```
-######
-#### TIMBER COUNT
-
-```{r}
-anova(fun.m0t(8), mod.time.timc, test = "LRT") 
-```
-######
-#### TIMBER SPECIES RICHNESS
-
-```{r}
-anova(fun.m0t(11), mod.time.timr, test = "LRT")
-```
-######
-#### MEDICINAL PLANTS COUNT
-
-```{r}
-anova(fun.m0t(9), mod.time.medc, test = "LRT")
-```
-######
-#### MEDICINAL PLANTS SPECIES RICHNESS
-
-```{r}
-anova(fun.m0t(12), mod.time.medr, test = "LRT")
-```
-######
-#### LEMUR FOOD TREES COUNT
-
-```{r}
-anova(fun.m0t(10), mod.time.lemc, test = "LRT")
-```
-######
-#### LEMUR FOOD TREES SPECIES RICHNESS
-
-```{r}
-anova(fun.m0t(13), mod.time.lemr, test = "LRT")
-```
 ######
 ## Bonus Plot!
 ##### *Plot showing Incidence Rate Ratios for all models. Note that plant metrics were not standardized and thus are not directly comparable.*
