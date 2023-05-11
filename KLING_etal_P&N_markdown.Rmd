@@ -1,0 +1,661 @@
+---
+title: "KLING et al P&N"
+author: "Katherine Kling"
+date: "2023-05-11"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+librarian::shelf(DHARMa,
+                 dplyr,
+                 geiger,
+                 ggeffects,
+                 ggforestplot,
+                 ggplot2,
+                 gtools,
+                 glmmTMB,
+                 Hmisc,
+                 interactions,
+                 jtools,
+                 lme4,
+                 marginaleffects,
+                 mfx,
+                 MuMIn,
+                 performance,
+                 readr,
+                 sjPlot,
+                 sys,
+                 vcd,
+                 vcdExtra) # use to install & load packages, as needed
+
+```
+
+```{r, include = F}
+# Necessary Functions
+
+# [1] For model selection of analyses of population & distance
+fun.mod.notime.aicc <- function(x) {
+  ## TWO PREDICTORS
+  # Pop&Dist Int
+  x.1<-  AICc(glmmTMB(df2_notime[,x] ~ pop*dist + (1|site:plot.id), family = poisson, data = df2_notime))
+  # Pop&Dist
+  x.2 <-  AICc(glmmTMB(df2_notime[,x] ~ pop + dist + (1|site:plot.id), family = poisson, data = df2_notime))
+  ## SINGLE PREDICTORS
+  # Pop Only
+  x.3 <-  AICc(glmmTMB(df2_notime[,x] ~ pop + (1|site:plot.id), family = poisson, data = df2_notime))
+  # Dist Only
+  x.4 <-  AICc(glmmTMB(df2_notime[,x] ~ dist + (1|site:plot.id), family = poisson, data = df2_notime))
+  ## NULL MODEL
+  # Null
+  x.5 <- AICc(glmmTMB(df2_notime[,x] ~ 1 + (1|site:plot.id), family = poisson, data = df2_notime))
+  aicc <- c(x.1, x.2, x.3, x.4, x.5)
+  names(aicc) <- c("Full-Int", "Full-NoInt", "Pop", "Dist", "Null")
+  aicc <<- aicc
+  aicc
+} # Where x is the column # for the dependent variable (e.g., 10 = wood.ct)
+
+## Shortcuts for Visualization
+# [2] Generate model-predicted values & save in data frame
+fun.mod.predict <- function(x) {
+  df.predict$predicted <- exp(predict(x, newdata = df.predict, allow.new.levels = T))
+  df.predict$ave_predicted <- ave(df.predict$predicted, df.predict$dist, df.predict$pop, FUN=mean)
+  
+  x.1 <- unique(df.predict[,c("dist","pop","ave_predicted")])
+  colnames(x.1)<-c("new_dist","new_pop","ave_predicted")
+  x.2 <- x.1$ave_predicted
+  x.2
+} # Where x = model
+
+# [3] Plot model-predicted lines by population, colored by distance
+fun.plot.mod <- function(x,y) {
+  y.lab <- deparse(substitute(x))
+  ggplot() + 
+  geom_point(data = df2_notime, aes(x = dist, y = x, color = pop),size=3) + 
+  geom_line(data = df4_predict, aes(x = new_dist, y = y, linetype = as.factor(new_pop)),linewidth=1) + 
+  theme_bw() + 
+  labs(title = y.lab)}
+
+```
+
+```{r, include = F}
+
+urlfile <- "https://raw.githubusercontent.com/kj-kling/Kling-etal-People-Nature/main/plots.csv"
+
+df1 <- read_csv(url(urlfile)) # Download full botanical plot dataset from github. Both population & distance have been standardized (log(x + 1))
+
+
+# Make Site a factor
+df1$site <- factor(df1$site)
+
+# Create dataset
+# Includes botanical plots inside protected area & near all 13 communities sampled in 2015
+df2_notime <- df1[df1$time==0,] # Data to use for analyses that do NOT involve plots repeat-sampled over time
+df2_notime <- as.data.frame(df2_notime)
+
+# Create dataset
+# Includes botanical plots repeat-sampled between 2015-2021 near 5 communities
+temp <- df1[df1$time>0,]
+df3_time <- df1[df1$plot.id %in% temp$plot.id,] # Data to use for analyses of change over time
+df3_time <- as.data.frame(df3_time)
+```
+######
+## Modeling Population & Distance
+##### *These analyses include botanical plots inside protected area & near all 13 communities sampled in 2015.*
+######
+### Timber & Medicinal Plant Analyses
+#### TIMBER COUNT
+
+```{r}
+
+fun.mod.notime.aicc(8) # Use function to calculate aicc values of all possible models
+aicw(aicc) # Best model is Full-Int (w = 0.71)
+
+mod.timc <-  glmmTMB(wood.ct ~ pop*dist + (1|site:plot.id), family = poisson, data = df2_notime)
+
+summary(mod.timc)
+```
+######
+##### Main effects: Timber Count
+##### *Are the dist and population slopes significant if averaged over our nested random effects?*
+
+```{r}
+main.timc <- avg_slopes(mod.timc)
+main.timc 
+```
+######
+##### Marginal effects: Timber Count
+##### *Does distance have a significant effect at certain population values?*
+###### *Note: Population is standardized. Categories examined for marginal effects correspond to population values representative of our sample: (0 ppl, 50, 250, 2000)*
+
+```{r}
+me.timc <- ggpredict(mod.timc, terms = c("dist", "pop [0, 3.9, 5.5, 7.6]"), type = "fixed", allow.new.levels = T)
+ggeffects::hypothesis_test(me.timc, test = NULL) 
+```
+######
+##### *Note: All visualizations available either in main text of manuscript or in supplementary materials, as composite figures. These are just quick ones for your reference, as you go through the code!*
+##### Visualize Data & Model-Predicted Results for Timber Count
+###### *Note: Distance is standardized. Range corresponds to closest botanical plot distance to a community (~ 500 m) to ~ 22 km.*
+
+```{r, echo = F}
+# In order to visualize
+# Creating data frame for predicted data from models for population & distance effects
+# Data frame has distance levels from 6 (natural log of ~ 400 m) to 10 (~ 22000 m) & the following population levels (when exponentiated): 0 ppl (i.e., protected area), 50, 250, 2000
+df.predict <- NULL
+df.predict$dist <- rep(seq(from = 6,to = 10,by = 0.2),4*length(unique(df2_notime$site))*length(unique(df2_notime$plot.id)))
+df.predict$pop <- rep(c(0, 3.9, 5.5, 7.6),each =
+                         length(unique(df.predict$dist))*length(unique(df2_notime$site))*length(unique(df2_notime$plot.id)))
+df.predict$site <- rep(unique(df2_notime$site),each = length(unique(df.predict$dist))*length(unique(df2_notime$plot.id)))
+df.predict$plot.id <- rep(unique(df2_notime$plot.id),each = length(unique(df.predict$dist))*length(unique(df2_notime$site)))
+df.predict <- as.data.frame(df.predict)
+
+# FIRST, create data frame to house all predictions across models. Starting with that for timber count
+df.predict$predict.timc <- exp(predict(mod.timc, newdata = df.predict, allow.new.levels = T))
+df.predict$ave_predicted <- ave(df.predict$predict.timc, df.predict$dist, df.predict$pop, FUN=mean)
+  
+df4_predict <- unique(df.predict[,c("dist","pop","ave_predicted")])
+colnames(df4_predict) <- c("new_dist","new_pop","tim.c")
+
+fun.plot.mod(df2_notime$wood.ct, df4_predict$tim.c)
+```
+
+```{r}
+```
+######
+#### TIMBER SPECIES RICHNESS
+
+```{r}
+## For remaining analyses of pop & dist, using the same process as that for TIMBER COUNT. Refer to Timber Count annotations
+
+fun.mod.notime.aicc(11)
+aicw(aicc) # Best model is Full-Int (w = 0.74)
+
+mod.timr <-  glmmTMB(wood.rich ~ pop*dist + (1|site:plot.id), family = poisson, data = df2_notime)
+
+summary(mod.timr)
+```
+######
+##### Main effects: Timber Species Richness
+
+```{r}
+main.timr <- avg_slopes(mod.timr)
+main.timr
+```
+######
+##### Marginal effects: Timber Species Richness
+
+```{r}
+me.timr <- ggpredict(mod.timr, terms = c("dist", "pop [0, 3.9, 5.5, 7.6]"), type = "fixed", allow.new.levels = T) 
+hypothesis_test(me.timr, test = NULL) 
+```
+######
+##### Visualize Data & Model-Predicted Results for Timber Species Richness
+
+```{r, echo = F}
+df4_predict$tim.r <- fun.mod.predict(mod.timr)
+
+fun.plot.mod(df2_notime$wood.rich, df4_predict$tim.r)
+```
+
+```{r}
+```
+######
+#### MEDICINAL PLANTS COUNT
+
+```{r}
+fun.mod.notime.aicc(9)
+aicw(aicc) # Best model is Full-NoInt (w = 0.71)
+
+mod.medc <- glmmTMB(med.ct ~ pop + dist + (1|site:plot.id), family = poisson, data = df2_notime)
+
+summary(mod.medc) 
+```
+######
+##### Main effects: Medicinal Plants Count
+
+```{r}
+main.medc <- avg_slopes(mod.medc)
+main.medc
+```
+######
+##### Marginal effects: Medicinal Plants Count
+
+```{r}
+me.medc <- ggpredict(mod.medc, terms = c("dist", "pop [0, 3.9, 5.5, 7.6]"), type = "fixed", allow.new.levels = T) 
+hypothesis_test(me.medc, test = NULL) 
+```
+######
+##### Visualize Data & Model-Predicted Results for Medicinal Plants Count
+###### *Note: There is no interaction between pop & dist for medicinal plants count.*
+
+```{r, echo = F}
+# REMEMBER, no interaction in the model
+df4_predict$med.c <- fun.mod.predict(mod.medc)
+
+fun.plot.mod(df2_notime$med.ct, df4_predict$med.c)
+```
+
+```{r}
+```
+######
+#### MEDICINAL PLANTS SPECIES RICHNESS
+
+```{r}
+fun.mod.notime.aicc(12)
+aicw(aicc) # Best model is Pop only (w = 0.53)
+
+mod.medr <- glmmTMB(med.rich ~ pop + (1|site:plot.id), family = poisson, data = df2_notime)
+
+summary(mod.medr) 
+```
+######
+##### Main effects: Medicinal Plants Species Richness
+
+```{r}
+main.medr <- avg_slopes(mod.medr)
+main.medr 
+```
+######
+##### Marginal effects: Medicinal Plants Species Richness
+
+```{r}
+me.medr <- ggpredict(mod.medr, terms = c("pop [0, 3.9, 5.5, 7.6]"), type = "fixed", allow.new.levels = T) 
+hypothesis_test(me.medr, test = NULL) 
+```
+######
+##### Visualize Data & Model-Predicted Results for Medicinal Plants Species Richness
+###### *Note: There is no distance term in the model for medicinal plants species richness.*
+
+```{r, echo = F}
+df4_predict$med.r <- fun.mod.predict(mod.medr)
+
+fun.plot.mod(df2_notime$med.rich, df4_predict$med.r)
+```
+
+```{r}
+```
+######
+######
+### Lemur Food Trees Analyses
+#### LEMUR FOOD TREES COUNT
+
+```{r}
+fun.mod.notime.aicc(10)
+aicw(aicc) # Best model is Full-Int (w = 0.64)
+
+mod.lemc <- glmmTMB(lem.ct ~ pop*dist + (1|site:plot.id), family = poisson, data = df2_notime)
+
+summary(mod.lemc)
+```
+######
+##### Main effects: Lemur Food Trees Count
+
+```{r}
+main.lemc <- avg_slopes(mod.lemc)
+main.lemc 
+```
+######
+##### Marginal effects: Lemur Food Trees Count
+
+```{r}
+me.lemc <- ggpredict(mod.lemc, terms = c("dist", "pop [0, 3.9, 5.5, 7.6]"), type = "fixed", allow.new.levels = T) 
+hypothesis_test(me.lemc, test = NULL) 
+```
+######
+##### Visualize Data & Model-Predicted Results for Lemur Food Trees Count
+
+```{r, echo = F}
+# Lemur Food Tree COUNT
+df4_predict$lem.c <- fun.mod.predict(mod.lemc)
+
+fun.plot.mod(df2_notime$lem.ct, df4_predict$lem.c)
+```
+
+```{r}
+```
+######
+#### LEMUR FOOD TREES SPECIES RICHNESS
+
+```{r}
+# Lemur Food Tree SPECIES RICHNESS
+fun.mod.notime.aicc(13)
+aicw(aicc) # Best model is Full-Int (w = 0.70)
+
+mod.lemr <- glmmTMB(lem.rich ~ pop*dist + (1|site:plot.id), family = poisson, data = df2_notime)
+
+summary(mod.lemr) 
+```
+######
+##### Main effects: Lemur Food Trees Species Richness
+
+```{r}
+main.lemr <- avg_slopes(mod.lemr)
+main.lemr 
+```
+######
+##### Marginal effects: Lemur Food Trees Species Richness
+
+```{r}
+me.lemr <- ggpredict(mod.lemr, terms = c("dist", "pop [0, 3.9, 5.5, 7.6]"), type = "fixed", allow.new.levels = T) 
+hypothesis_test(me.lemr, test = NULL) 
+```
+######
+##### Visualize Data & Model-Predicted Results for Lemur Food Trees Species Richness
+
+```{r, echo = F}
+df4_predict$lem.r <- fun.mod.predict(mod.lemr)
+
+fun.plot.mod(df2_notime$lem.rich, df4_predict$lem.r)
+```
+
+```{r}
+```
+######
+######
+## Modeling Changes in Plot Metrics Over Time
+##### *These analyses include all plots that were repeat-sampled near 5 communities between 2015-2021. Each plot was sampled 5x.*
+###### *Note: All changes over time analyses use the same fixed effect model structure for population & distance as that used in the first set of analyses for that plant trait (e.g., TIMBER COUNT's model of population & distance included the following as its fixed effects: pop x dist.*
+######
+######
+### Timber & Medicinal Plant Analyses
+#### TIMBER COUNT
+
+```{r}
+mod.time.timc <- glmmTMB(wood.ct ~ pop*dist + time + (1+time|site:plot.id), family = poisson, data = df3_time) 
+
+summary(mod.time.timc) 
+```
+######
+##### Main effects: Timber Count
+##### *Is the effect of time (& dist and population for this subset of repeat-sampled plots) significant if averaged over our nested random effects?*
+
+```{r}
+main.time.timc <- avg_slopes(mod.time.timc)
+main.time.timc
+```
+######
+##### Visualize Data & Model-Predicted Results for Timber Count Change over Time BY SITE
+###### *Note: Lines represent change over time for each individual plot per site.*
+
+```{r, echo = F}
+df3_time$timc <-exp(predict(mod.time.timc)) # Add predicted data to time data frame
+
+ggplot(data = df3_time) + 
+  geom_point(data = df3_time, aes(x = time, y = wood.ct, color = dist, group = plot.id),size=3) +
+  geom_line(data = df3_time, aes(x = time, y = timc, group = plot.id)) + 
+  facet_wrap(~site)
+```
+
+```{r}
+```
+######
+#### TIMBER SPECIES RICHNESS
+
+```{r}
+mod.time.timr <- glmmTMB(wood.rich ~ pop*dist + time + (1+time|site:plot.id), family = poisson, data = df3_time) 
+
+summary(mod.time.timr) 
+```
+######
+##### Main effects: Timber Species Richness
+
+```{r}
+main.time.timr <- avg_slopes(mod.time.timr)
+main.time.timr
+```
+######
+##### Visualize Data & Model-Predicted Results for Timber Species Richness Change over Time BY SITE
+
+```{r, echo = F}
+df3_time$timr <- exp(predict(mod.time.timr))
+
+ggplot(data = df3_time) + 
+  geom_point(data = df3_time, aes(x = time, y = wood.rich, color = dist, group = plot.id),size=3) +
+  geom_line(data = df3_time, aes(x = time, y = timr, group = plot.id)) + 
+  facet_wrap(~site)
+```
+
+```{r}
+```
+######
+#### MEDICINAL PLANTS COUNT
+
+```{r}
+mod.time.medc <- glmmTMB(med.ct ~ pop + dist + time + (1+time|site:plot.id), family = poisson, data = df3_time)
+
+summary(mod.time.medc) 
+```
+######
+##### Main effects: Medicinal Plants Count
+
+```{r}
+main.time.medc <- avg_slopes(mod.time.medc)
+main.time.medc
+```
+######
+##### Visualize Data & Model-Predicted Results for Medicinal Plants Count Change over Time BY SITE
+
+```{r, echo = F}
+df3_time$medc <- exp(predict(mod.time.medc))
+
+ggplot(data = df3_time) + 
+  geom_point(data = df3_time, aes(x = time, y = med.ct, color = dist, group = plot.id),size=3) +
+  geom_line(data = df3_time, aes(x = time, y = medc, group = plot.id)) + 
+  facet_wrap(~site)
+```
+
+```{r}
+```
+######
+#### MEDICINAL PLANTS SPECIES RICHNESS
+###### *Note: There is a singular convergence issue is time is included as a random slope. This is the only time analysis that does NOT include time as a random slope. Time is still included as a fixed effect.*
+
+```{r}
+mod.time.medr <- glmmTMB(med.rich ~ pop + time + (1|site:plot.id), family = poisson, data = df3_time) # Singular convergence issue when time was included as a random slope
+
+summary(mod.time.medr) # Medicinal plant species richness significantly decreases over time
+```
+######
+##### Main effects: Medicinal Plants Species Richness
+
+```{r}
+main.time.medr <- avg_slopes(mod.time.medr)
+main.time.medr
+```
+######
+##### Visualize Data & Model-Predicted Results for Medicinal Plants Species Richness Change over Time BY SITE
+
+```{r, echo = F}
+df3_time$medr <- exp(predict(mod.time.medr))
+
+ggplot(data = df3_time) + 
+  geom_point(data = df3_time, aes(x = time, y = med.rich, color = dist, group = plot.id),size=3) +
+  geom_line(data = df3_time, aes(x = time, y = medr, group = plot.id)) + 
+  facet_wrap(~site)
+```
+
+
+```{r}
+```
+######
+######
+### Lemur Food Trees Analyses
+#### LEMUR FOOD TREES COUNT
+
+```{r}
+mod.time.lemc <- glmmTMB(lem.ct ~ pop*dist + time + (1+time|site:plot.id), family = poisson, data = df3_time) 
+
+summary(mod.time.lemc) 
+```
+######
+##### Main effects: Medicinal Plants Species Richness
+
+```{r}
+main.time.lemc <- avg_slopes(mod.time.lemc)
+main.time.lemc
+```
+######
+##### Visualize Data & Model-Predicted Results for Lemur Food Trees Count Change over Time BY SITE
+
+```{r, echo = F}
+df3_time$lemc <- exp(predict(mod.time.lemc))
+
+ggplot(data = df3_time) + 
+  geom_point(data = df3_time, aes(x = time, y = lem.ct, color = dist, group = plot.id),size=3) +
+  geom_line(data = df3_time, aes(x = time, y = lemc, group = plot.id)) + 
+  facet_wrap(~site)
+```
+
+```{r}
+```
+######
+#### LEMUR FOOD TREES SPECIES RICHNESS
+
+```{r}
+mod.time.lemr <- glmmTMB(lem.rich ~ pop*dist + time + (1+time|site:plot.id), family = poisson, data = df3_time) 
+
+summary(mod.time.lemr)
+```
+######
+##### Main effects: Lemur Food Trees Species Richness
+
+```{r}
+main.time.lemr <- avg_slopes(mod.time.lemr)
+main.time.lemr
+```
+######
+##### Visualize Data & Model-Predicted Results for Lemur Food Trees Species RIchness Change over Time BY SITE
+
+```{r, echo = F}
+df3_time$lemr <- exp(predict(mod.time.lemr))
+
+ggplot(data = df3_time) + 
+  geom_point(data = df3_time, aes(x = time, y = lem.rich, color = dist, group = plot.id),size=3) +
+  geom_line(data = df3_time, aes(x = time, y = lemr, group = plot.id)) + 
+  facet_wrap(~site)
+```
+
+```{r}
+```
+######
+######
+## Examining Models Goodness of Fit 
+###### *Likelihood ratio tests between best model for each plant metric & null.*
+######
+### Population & Distance Models
+```{r, echo = F}
+# POP & DIST ANALYSES
+fun.m0 <- function(x) {
+  m0 <- glmmTMB(df2_notime[,x] ~ 1 + (1|site:plot.id), family = poisson, data = df2_notime)
+  m0
+} # Constructs null models for each plant metric population & distance analysis
+```
+######
+#### TIMBER COUNT
+
+```{r}
+anova(fun.m0(8), mod.timc, test = "LRT") 
+```
+######
+#### TIMBER SPECIES RICHNESS
+
+```{r}
+# TIMR
+anova(fun.m0(11), mod.timr, test = "LRT")
+```
+######
+#### MEDICINAL PLANTS COUNT
+
+```{r}
+anova(fun.m0(9), mod.medc, test = "LRT")
+```
+######
+#### MEDICINAL PLANTS SPECIES RICHNESS
+
+```{r}
+anova(fun.m0(12), mod.medr, test = "LRT")
+```
+######
+#### LEMUR FOOD TREES COUNT
+
+```{r}
+anova(fun.m0(10), mod.lemc, test = "LRT")
+```
+######
+#### LEMUR FOOD TREES SPECIES RICHNESS
+
+```{r}
+anova(fun.m0(13), mod.lemr, test = "LRT")
+```
+######
+### Change over Time Models
+```{r, echo = F}
+fun.m0t <- function(x) {
+  m0 <- glmmTMB(df3_time[,x] ~ 1 + (1|site:plot.id), family = poisson, data = df3_time)
+  m0
+} # Constructs null models for each plant metric change over time analysis
+```
+######
+#### TIMBER COUNT
+
+```{r}
+anova(fun.m0t(8), mod.time.timc, test = "LRT") 
+```
+######
+#### TIMBER SPECIES RICHNESS
+
+```{r}
+anova(fun.m0t(11), mod.time.timr, test = "LRT")
+```
+######
+#### MEDICINAL PLANTS COUNT
+
+```{r}
+anova(fun.m0t(9), mod.time.medc, test = "LRT")
+```
+######
+#### MEDICINAL PLANTS SPECIES RICHNESS
+
+```{r}
+anova(fun.m0t(12), mod.time.medr, test = "LRT")
+```
+######
+#### LEMUR FOOD TREES COUNT
+
+```{r}
+anova(fun.m0t(10), mod.time.lemc, test = "LRT")
+```
+######
+#### LEMUR FOOD TREES SPECIES RICHNESS
+
+```{r}
+anova(fun.m0t(13), mod.time.lemr, test = "LRT")
+```
+######
+## Bonus Plot!
+##### *Plot showing Incidence Rate Ratios for all models. Note that plant metrics were not standardized and thus are not directly comparable.*
+
+```{r, echo = F}
+
+est <- read.csv("est.plottab.csv", header = T)
+est$type <- as.factor(est$type)
+est$type <- factor(est$type, levels = c("Timber", "Medicinal Plant", "Ruffed Lemur Food Tree"))
+
+# Estimate (IRR) Plot
+forestplot(df = est, name = var, estimate = estimate, pvalue = p.val, psignif = 0.05, logodds = T,
+           colour = type, fatten = 2,
+           xlab = "\nIncidence Rate Ratios\nfor Plot Count & Species Richness (95% CI)") +
+  ggforce::facet_col(facets = ~ var2, scales = "free_y", space = "free") +
+  theme(#plot.title = element_text(hjust = 0.5),
+    #plot.subtitle = element_text(hjust = 0.5),
+    #axis.text.y = element_text(size = rel(1.2)),
+    strip.background = element_rect(color = "black", fill = NA, size = 1.25),
+    legend.title = element_blank(),
+    legend.text = element_text(size = rel(1)),
+    legend.position = "top",
+    legend.justification="right",
+    legend.margin=margin(0,0,0,0),
+    legend.box.margin=margin(-5,-5,-5,-5)) +
+  guides(color = guide_legend(override.aes = list(size = 1))) + 
+  geom_effect(aes(xmin = .data$.xmin, xmax = .data$.xmax, colour = type, filled = .data$.filled), 
+              fatten = 3.5) +
+  scale_color_manual(values = c("#44aa99", "#ddcc77", "#aa4499")) 
