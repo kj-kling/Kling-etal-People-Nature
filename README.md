@@ -1,6 +1,5 @@
 # Kling-etal-People-Nature
 This repository contains the (1) code, (2) results output, and (3) datasets used for a paper entitled "Provisioning services deline for both people and Critically Endangered wildlife in a rainforest transformation landscape."
-Datasets include Appendix S1 (an Excel file that includes information on the provisioning services of all plants examined in the study) and the dataset used to model factors affecting botanical plot metrics for timber, medicinal plant, and ruffed lemur food tree provisioning services. Further details below:
 
 The manuscript is under review with _People & Nature_, so this release has been labeled 'prepub' as a result. If accepted for publication, a further, final release will be published that includes the DOI for the manuscript, as well as any necessary updates to these materials.
 
