@@ -19,8 +19,11 @@ The code & output also include model visualizations to assist with interpretatio
 This is the dataset used in the R code provided. The sheet contains the following columns...
 
 $ plot.id: ID of each plot sampled
+
 $ site: ID for each sampling location (_n_ = 13 communities, A-M; _n_ = 2 sampling locations within Masoala National Park (PA1, PA2)
+
 $ year: year data were collected for plot
+
 $ time: years since 2015, used in analyses
 
 $ protected.area: binary Y/N of whether plot is in Masoala National Park; not used directly in modeling
@@ -43,9 +46,7 @@ $ lem.rich: # of lemur food tree species in plot
 
 # APPENDIX S1 #
  Provisioning service(s) per plant
-This appendix contains information on the provisioning services of 408 locally-identified plant ethnonyms located on the Masoala Peninsula, northeastern Madagascar, as well as the abundance of these plants, by type, across botanical plots sampled in 2015-2016.
-
-The appendix contains the following tabs:
+This appendix contains information on the provisioning services of 408 locally-identified plant ethnonyms located on the Masoala Peninsula, northeastern Madagascar, as well as the abundance of these plants, by type, across botanical plots sampled in 2015-2016. The appendix contains the following tabs:
 
 (1) Key: A key to the appendix' contents
 
