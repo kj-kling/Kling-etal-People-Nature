@@ -16,33 +16,17 @@ Includes R code (R Markdown) & results output (pdf of R Markdown output) for mod
 The code & output also include model visualizations to assist with interpretation.
 
 # PLOTS.CSV #
-This is the dataset used in the R code provided. The sheet contains the following columns...
+This is the dataset used in the R code provided. The sheet contains the following columns:
 
-$ plot.id: ID of each plot sampled
+ID columns: plot.id, site, protected.area
 
-$ site: ID for each sampling location (_n_ = 13 communities, A-M; _n_ = 2 sampling locations within Masoala National Park (PA1, PA2)
+Time columns: year (2015-2021) plots sampled, and time (years since 2015)
 
-$ year: year data were collected for plot
+Population & Distance columns: pop (standardized population of community closest to plot; protected area plots given pop = 0), dist (standardized distance (m) to community closest to plot)
 
-$ time: years since 2015, used in analyses
+Plot metrics - Count columns (i.e., wood.ct): _n_ of individual trees of plants per plot for each provisioning service (timber, medicinal plant, and lemur food trees)
 
-$ protected.area: binary Y/N of whether plot is in Masoala National Park; not used directly in modeling
-
-$ pop: standardized population size of nearest community to plot; protected area plots were given population of 0
-
-$ dist: standardized distance (m) of nearest community to plot
-
-$ wood.ct: # of timber trees in plot
-
-$ med.ct: # of individual medicinal plants in plot
-
-$ lem.ct: # of trees that contain lemur food resources (i.e., lemur food trees) in plot
-
-$ wood.rich: # of timber tree species in plot
-
-$ med.rich: # of medicinal plant species in plot
-
-$ lem.rich: # of lemur food tree species in plot
+Plot metrics - Species Richness columns (i.e., wood.rich): _n_ of tree or plant species per plot for each provisioning service
 
 # APPENDIX S1 #
  Provisioning service(s) per plant
@@ -56,5 +40,5 @@ This appendix contains information on the provisioning services of 408 locally-i
 
 (4) High Abundance: Data table that provides statistics on provisioning service overlaps for all species that were indicated to be 'High' abundance for any given provisioning service
 
-*Plant provisioning services for humans were documented for eight purposes: (1) timber (i.e., wood), (2) medicinal plants, (3) food, (4) alcohol production, (5) cordage, (6) weaving, (7) fodder for livestock, and (8) "other" purposes (with description incl.)
+_Plant provisioning services for humans were documented for eight purposes: (1) timber (i.e., wood), (2) medicinal plants, (3) food, (4) alcohol production, (5) cordage, (6) weaving, (7) fodder for livestock, and (8) "other" purposes (with description incl.)_
 
