@@ -28,7 +28,7 @@ Plot metrics - Count columns (i.e., wood.ct): _n_ of individual trees of plants 
 Plot metrics - Species Richness columns (i.e., wood.rich): _n_ of tree or plant species per plot for each provisioning service
 
 # APPENDIX S1 #
- Provisioning service(s) per plant
+Provisioning service(s) per plant:
 This appendix contains information on the provisioning services of 408 locally-identified plant ethnonyms located on the Masoala Peninsula, northeastern Madagascar, as well as the abundance of these plants, by type, across botanical plots sampled in 2015-2016. The appendix contains the following tabs:
 
 (1) Key: A key to the appendix' contents
