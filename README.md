@@ -7,7 +7,7 @@ DOI for the repository:
 
 <a href="https://zenodo.org/badge/latestdoi/638557972"><img src="https://zenodo.org/badge/638557972.svg" alt="DOI"></a>
 
-Please contact me (Katherine!) with any comments or questions: katherine.kling@stonybrook.edu
+Please contact me (Katherine!) with any comments or questions: katherine.kling@stonybrook.edu or kling.katherine@gmail.com 
 
 # CODE & OUTPUT #
 Includes R code (R Markdown) & results output (pdf of R Markdown output) for models analyzing effects of (a) distance & nearest community population and (b) change over time on plot metrics.
